@@ -1,35 +1,34 @@
 import { useMemo } from 'react';
 import { useStore } from '@/store/useStore';
 
-const WAFER_SIZE = 8; // 8x8 tiles
-const TILES_PER_WAFER = WAFER_SIZE * WAFER_SIZE;
-const EXPERTS_PER_TILE = 8; // 8 experts per tile
+const WAFER_SIZE = 8; // 8x8 grid
+const NUM_EXPERTS = 64; // 1 expert per tile
 
 export function WaferView() {
   const { tokenRoutes } = useStore();
 
-  // Calculate expert activations per tile
+  // Calculate per-expert (per-tile) activation data
   const tileData = useMemo(() => {
-    const tileActivations = new Array(TILES_PER_WAFER).fill(0).map(() => ({
+    const tiles = new Array(NUM_EXPERTS).fill(0).map(() => ({
       count: 0,
-      experts: new Set<number>(),
+      totalWeight: 0,
     }));
 
     tokenRoutes.forEach((route) => {
       if (route.expertData?.experts) {
-        route.expertData.experts.forEach((expertList: number[]) => {
-          expertList.forEach((expertId) => {
-            const tileId = Math.floor(expertId / EXPERTS_PER_TILE);
-            if (tileId < TILES_PER_WAFER) {
-              tileActivations[tileId].count++;
-              tileActivations[tileId].experts.add(expertId);
+        route.expertData.experts.forEach((expertList: number[], layerIdx: number) => {
+          const weights = route.expertData?.weights?.[layerIdx] || [];
+          expertList.forEach((expertId, idx) => {
+            if (expertId < NUM_EXPERTS) {
+              tiles[expertId].count++;
+              tiles[expertId].totalWeight += weights[idx] || 0;
             }
           });
         });
       }
     });
 
-    return tileActivations;
+    return tiles;
   }, [tokenRoutes]);
 
   const maxCount = Math.max(...tileData.map((d) => d.count), 1);
@@ -37,12 +36,23 @@ export function WaferView() {
   const getTileColor = (count: number) => {
     if (count === 0) return '#1a1a2e';
     const intensity = Math.min(count / maxCount, 1);
-    // Heat gradient from dark blue to red
-    const r = Math.floor(26 + (239 - 26) * intensity);
-    const g = Math.floor(26 + (68 - 26) * intensity);
-    const b = Math.floor(46 + (68 - 46) * (1 - intensity));
-    return `rgb(${r}, ${g}, ${b})`;
+    // Dark blue → orange → red heat gradient
+    if (intensity < 0.5) {
+      const t = intensity * 2;
+      const r = Math.floor(26 + (234 - 26) * t);
+      const g = Math.floor(26 + (88 - 26) * t);
+      const b = Math.floor(46 + (12 - 46) * t);
+      return `rgb(${r}, ${g}, ${b})`;
+    } else {
+      const t = (intensity - 0.5) * 2;
+      const r = Math.floor(234 + (239 - 234) * t);
+      const g = Math.floor(88 + (68 - 88) * t);
+      const b = Math.floor(12 + (68 - 12) * t);
+      return `rgb(${r}, ${g}, ${b})`;
+    }
   };
+
+  const activeTiles = tileData.filter((t) => t.count > 0).length;
 
   return (
     <div className="space-y-4">
@@ -50,79 +60,79 @@ export function WaferView() {
         <div>
           <h3 className="text-sm font-medium">Cerebras-Style Wafer Topology</h3>
           <p className="text-xs text-muted-foreground">
-            {WAFER_SIZE}×{WAFER_SIZE} tiles • {TILES_PER_WAFER} tiles • {TILES_PER_WAFER * EXPERTS_PER_TILE} experts
+            {WAFER_SIZE}×{WAFER_SIZE} grid • {NUM_EXPERTS} experts • 1 expert per tile
           </p>
         </div>
         <div className="flex items-center gap-2 text-xs text-muted-foreground">
           <span>Idle</span>
-          <div className="w-24 h-2 bg-gradient-to-r from-[#1a1a2e] via-[#4a4a8e] to-[#ef4444] rounded" />
+          <div
+            className="w-32 h-2 rounded"
+            style={{ background: 'linear-gradient(to right, #1a1a2e, #ea580c, #ef4444)' }}
+          />
           <span>Hot</span>
         </div>
       </div>
 
-      <div className="relative">
-        {/* Wafer container with rounded corners */}
-        <div 
-          className="relative rounded-full overflow-hidden bg-[#0a0a1a] p-8"
-          style={{ aspectRatio: '1' }}
+      {/* Wafer grid */}
+      <div className="relative bg-[#0a0a1a] rounded-2xl p-3">
+        <div
+          className="grid gap-[3px]"
+          style={{
+            gridTemplateColumns: `repeat(${WAFER_SIZE}, 1fr)`,
+          }}
         >
-          {/* Grid of tiles */}
-          <div 
-            className="grid gap-1 h-full"
-            style={{ 
-              gridTemplateColumns: `repeat(${WAFER_SIZE}, 1fr)`,
-              gridTemplateRows: `repeat(${WAFER_SIZE}, 1fr)`,
-            }}
-          >
-            {tileData.map((tile, index) => (
-              <div
-                key={index}
-                className="relative rounded-sm overflow-hidden cursor-pointer group"
-                style={{ backgroundColor: getTileColor(tile.count) }}
-                title={`Tile ${index}: ${tile.count} activations, ${tile.experts.size} unique experts`}
-              >
-                {/* Tile ID */}
-                <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity bg-black/50">
-                  <span className="text-xs text-white font-medium">{index}</span>
-                </div>
-                
-                {/* Expert count indicator */}
-                {tile.count > 0 && (
-                  <div className="absolute bottom-1 right-1 text-[10px] text-white/70">
-                    {tile.experts.size}
-                  </div>
-                )}
+          {tileData.map((tile, index) => (
+            <div
+              key={index}
+              className="aspect-square rounded-sm relative cursor-pointer group transition-all hover:ring-1 hover:ring-white/40"
+              style={{ backgroundColor: getTileColor(tile.count) }}
+              title={`Expert ${index}: ${tile.count} activations, avg weight ${tile.count > 0 ? (tile.totalWeight / tile.count).toFixed(3) : '0'}`}
+            >
+              {/* Expert ID shown on hover */}
+              <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity bg-black/50 rounded-sm">
+                <span className="text-[10px] text-white font-medium">E{index}</span>
               </div>
-            ))}
-          </div>
+
+              {/* Expert ID always visible */}
+              <div className="absolute inset-0 flex items-center justify-center">
+                <span
+                  className={`text-[10px] font-medium ${
+                    tile.count > maxCount / 3 ? 'text-white/90' : 'text-white/40'
+                  }`}
+                >
+                  {index}
+                </span>
+              </div>
+            </div>
+          ))}
         </div>
 
-        {/* Statistics overlay */}
-        <div className="absolute top-4 left-4 bg-black/70 rounded p-3 text-xs text-white">
-          <div className="space-y-1">
-            <div>Active Tiles: {tileData.filter(t => t.count > 0).length}/{TILES_PER_WAFER}</div>
-            <div>Max Activations: {maxCount}</div>
-            <div>Load Balance: {((tileData.filter(t => t.count > 0).length / TILES_PER_WAFER) * 100).toFixed(1)}%</div>
-          </div>
+        {/* Stats overlay */}
+        <div className="absolute top-5 left-5 bg-black/80 rounded-lg px-3 py-2 text-[11px] text-white/90 space-y-0.5">
+          <div>Active: {activeTiles}/{NUM_EXPERTS}</div>
+          <div>Peak: {maxCount}</div>
+          <div>Util: {((activeTiles / NUM_EXPERTS) * 100).toFixed(1)}%</div>
         </div>
       </div>
 
       {/* Legend */}
-      <div className="grid grid-cols-2 gap-4 text-xs">
+      <div className="grid grid-cols-3 gap-4 text-xs">
         <div className="bg-muted rounded p-3">
-          <div className="font-medium mb-2">Tile Structure</div>
-          <div className="text-muted-foreground space-y-1">
-            <div>• Each tile: {EXPERTS_PER_TILE} experts</div>
-            <div>• Total tiles: {TILES_PER_WAFER}</div>
-            <div>• Wafer layout: {WAFER_SIZE}×{WAFER_SIZE}</div>
+          <div className="font-medium mb-1">Layout</div>
+          <div className="text-muted-foreground">
+            {WAFER_SIZE}×{WAFER_SIZE} = {NUM_EXPERTS} tiles
           </div>
         </div>
         <div className="bg-muted rounded p-3">
-          <div className="font-medium mb-2">Hotspots</div>
-          <div className="text-muted-foreground space-y-1">
-            <div>• Red: High utilization</div>
-            <div>• Blue: Medium utilization</div>
-            <div>• Dark: Idle</div>
+          <div className="font-medium mb-1">Hotspots</div>
+          <div className="text-muted-foreground">
+            Red/orange = high traffic
+          </div>
+        </div>
+        <div className="bg-muted rounded p-3">
+          <div className="font-medium mb-1">Load Balance</div>
+          <div className="text-muted-foreground">
+            {activeTiles}/{NUM_EXPERTS} tiles active
           </div>
         </div>
       </div>

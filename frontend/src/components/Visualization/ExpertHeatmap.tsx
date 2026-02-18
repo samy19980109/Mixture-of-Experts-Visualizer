@@ -38,10 +38,10 @@ export function ExpertHeatmap() {
   const getColor = (count: number) => {
     if (count === 0) return '#f3f4f6';
     const intensity = Math.min(count / maxCount, 1);
-    // Blue gradient from light to dark
-    const r = Math.floor(59 + (37 - 59) * intensity);
-    const g = Math.floor(130 + (99 - 130) * intensity);
-    const b = Math.floor(246 + (235 - 246) * intensity);
+    // Wide gradient: light blue-gray → vivid blue → deep indigo
+    const r = Math.floor(219 - 195 * intensity);  // 219 → 24
+    const g = Math.floor(234 - 178 * intensity);  // 234 → 56
+    const b = Math.floor(254 - 42 * intensity);   // 254 → 212
     return `rgb(${r}, ${g}, ${b})`;
   };
 
@@ -51,7 +51,7 @@ export function ExpertHeatmap() {
         <h3 className="text-sm font-medium">Expert Activation Heatmap</h3>
         <div className="flex items-center gap-2 text-xs text-muted-foreground">
           <span>Low</span>
-          <div className="w-24 h-2 bg-gradient-to-r from-gray-100 to-blue-600 rounded" />
+          <div className="w-24 h-2 rounded" style={{ background: 'linear-gradient(to right, #dbeafe, #1838d4)' }} />
           <span>High</span>
         </div>
       </div>
@@ -64,7 +64,7 @@ export function ExpertHeatmap() {
             style={{ backgroundColor: getColor(expert.count) }}
             title={`Expert ${expert.expertId}: ${expert.count} activations`}
           >
-            <span className={expert.count > maxCount / 2 ? 'text-white' : 'text-gray-700'}>
+            <span className={expert.count > maxCount / 3 ? 'text-white' : 'text-gray-700'}>
               {expert.expertId}
             </span>
           </div>
