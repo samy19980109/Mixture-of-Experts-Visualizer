@@ -1,8 +1,8 @@
-import { Brain, Activity } from 'lucide-react';
+import { Brain, Activity, Sun, Moon } from 'lucide-react';
 import { useStore } from '@/store/useStore';
 
 export function Header() {
-  const { memoryStats, isConnected } = useStore();
+  const { memoryStats, isConnected, darkMode, toggleDarkMode } = useStore();
 
   // Check if memoryStats has the required properties
   const hasMemoryStats = memoryStats &&
@@ -21,6 +21,15 @@ export function Header() {
         </div>
         
         <div className="flex items-center gap-4">
+          {/* Dark Mode Toggle */}
+          <button
+            onClick={toggleDarkMode}
+            className="p-2 rounded-md hover:bg-muted transition-colors"
+            title={darkMode ? 'Switch to light mode' : 'Switch to dark mode'}
+          >
+            {darkMode ? <Sun className="w-4 h-4" /> : <Moon className="w-4 h-4" />}
+          </button>
+
           {/* Connection Status */}
           <div className="flex items-center gap-2 text-sm">
             <div className={`w-2 h-2 rounded-full ${isConnected ? 'bg-green-500' : 'bg-red-500'}`} />

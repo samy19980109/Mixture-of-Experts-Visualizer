@@ -1,3 +1,4 @@
+import { useEffect } from 'react';
 import { useStore } from '@/store/useStore';
 import { useInference } from '@/hooks/useInference';
 import { Header } from '@/components/Layout/Header';
@@ -10,8 +11,13 @@ import { MemoryUsage } from '@/components/Metrics/MemoryUsage';
 import { TokenSpeed } from '@/components/Metrics/TokenSpeed';
 
 function App() {
-  const { currentView, modelInfo, isModelLoaded, generatedText, tokenRoutes } = useStore();
+  const { currentView, modelInfo, isModelLoaded, generatedText, tokenRoutes, darkMode } = useStore();
   const { isGenerating, runInference, stopInference } = useInference();
+
+  // Apply dark class on mount based on initial preference
+  useEffect(() => {
+    document.documentElement.classList.toggle('dark', darkMode);
+  }, []);
 
   const renderVisualization = () => {
     switch (currentView) {

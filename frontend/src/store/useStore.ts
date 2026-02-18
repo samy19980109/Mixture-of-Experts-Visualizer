@@ -28,7 +28,8 @@ interface AppState {
   currentView: VisualizationView;
   config: InferenceConfig;
   isConnected: boolean;
-  
+  darkMode: boolean;
+
   // Actions
   setModelInfo: (info: ModelInfo) => void;
   setModelLoaded: (loaded: boolean) => void;
@@ -41,6 +42,7 @@ interface AppState {
   setCurrentView: (view: VisualizationView) => void;
   updateConfig: (config: Partial<InferenceConfig>) => void;
   setIsConnected: (connected: boolean) => void;
+  toggleDarkMode: () => void;
 }
 
 export const useStore = create<AppState>((set) => ({
@@ -54,6 +56,7 @@ export const useStore = create<AppState>((set) => ({
   memoryStats: null,
   currentView: 'heatmap',
   isConnected: false,
+  darkMode: typeof window !== 'undefined' && window.matchMedia('(prefers-color-scheme: dark)').matches,
   config: {
     temperature: 0.7,
     topP: 0.9,
@@ -102,4 +105,9 @@ export const useStore = create<AppState>((set) => ({
   updateConfig: (config) => set((state) => ({
     config: { ...state.config, ...config }
   })),
+  toggleDarkMode: () => set((state) => {
+    const next = !state.darkMode;
+    document.documentElement.classList.toggle('dark', next);
+    return { darkMode: next };
+  }),
 }));
